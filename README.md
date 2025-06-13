@@ -1,6 +1,20 @@
 # Large File Transfer
 
-A secure, web-based solution for transferring large files between computers. This application allows users to send and receive files of any size through a simple web interface, with built-in security features and chunked transfer capabilities.
+A lightweight, single-file PHP solution for transferring large files between computers, specifically designed for small VMs and shared hosting environments. This application provides a simple way to transfer files of any size through a web interface, with minimal server requirements and no database dependencies.
+
+## Purpose
+
+This project was created to solve the challenge of transferring large files in resource-constrained environments:
+- Works on small VMs with limited resources
+- Compatible with shared hosting environments
+- No database required - everything is file-based
+- Single PHP file for easy deployment
+- Minimal dependencies and setup required
+
+## Components
+
+- `largefiletransfer.php`: The main application file containing all the necessary code for file transfer functionality
+- `run_largefiletransfer.sh`: A helper script for local development and testing in Docker (not required for production use)
 
 ## Features
 
@@ -16,13 +30,17 @@ A secure, web-based solution for transferring large files between computers. Thi
 - PHP 7.0 or higher
 - Web server (Apache, Nginx, etc.)
 - Write permissions for the temporary directory
+- No database required
+- Minimal server resources needed
 
 ## Installation
 
-1. Place the files in your web server directory
+1. Upload `largefiletransfer.php` to your web server directory
 2. Ensure the web server has write permissions to the temporary directory
 3. Access the application through your web browser
 4. Set up the initial password when prompted
+
+Note: The `run_largefiletransfer.sh` script is only needed if you want to test the application locally using Docker.
 
 ## Usage
 
