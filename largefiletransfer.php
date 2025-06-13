@@ -84,14 +84,37 @@ if (!file_exists($PASSWORD_FILE)) {
     }
     ?>
     <!DOCTYPE html>
-    <html><head><title>Set Initial Password</title></head><body>
-    <h2>Set Initial Password</h2>
-    <?php if (!empty($error)) echo '<p style="color:red">' . htmlspecialchars($error) . '</p>'; ?>
-    <form method="post">
-        <input type="password" name="set_password" placeholder="Enter password" required />
-        <button type="submit">Set Password</button>
-    </form>
-    </body></html>
+    <html>
+    <head>
+        <title>Set Initial Password</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+        <style>
+            body { background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%); min-height: 100vh; }
+            .card { border-radius: 1rem; }
+            .brand { font-family: 'Segoe UI', sans-serif; font-weight: 700; letter-spacing: 1px; }
+        </style>
+    </head>
+    <body>
+    <div class="container d-flex flex-column justify-content-center align-items-center" style="min-height:100vh;">
+        <div class="card shadow-lg p-4" style="max-width: 400px; width:100%;">
+            <div class="text-center mb-4">
+                <span class="brand display-6">Large File Transfer</span>
+            </div>
+            <h4 class="mb-3 text-center">Set Initial Password</h4>
+            <?php if (!empty($error)) echo '<div class="alert alert-danger">' . htmlspecialchars($error) . '</div>'; ?>
+            <form method="post">
+                <div class="mb-3">
+                    <input type="password" name="set_password" class="form-control form-control-lg" placeholder="Enter password" required autofocus />
+                </div>
+                <button type="submit" class="btn btn-primary w-100 btn-lg">Set Password</button>
+            </form>
+            <div class="text-center mt-4 text-muted" style="font-size:0.95em;">
+                &copy; Denys Fedoryshchenko
+            </div>
+        </div>
+    </div>
+    </body>
+    </html>
     <?php
     exit;
 }
@@ -150,9 +173,15 @@ if ($mode === 'api') {
         exit;
     }
     if ($action === 'ready') {
-        $tmp_size = get_dir_size($TMP_DIR);
+        $session_id = $_POST['session_id'] ?? $_GET['session_id'] ?? '';
+        $session_dir = $TMP_DIR . '/' . preg_replace('/[^a-zA-Z0-9_]/', '', $session_id);
+        if (!$session_id || !is_dir($session_dir)) {
+            echo json_encode(['ok' => false, 'reason' => 'invalid_session']);
+            exit;
+        }
+        $session_size = get_dir_size($session_dir);
         $free_space = disk_free_space($TMP_DIR);
-        if ($tmp_size > $TMP_SIZE_LIMIT) {
+        if ($session_size > $TMP_SIZE_LIMIT) {
             echo json_encode(['ok' => false, 'reason' => 'tmp_full']);
             exit;
         }
@@ -247,14 +276,28 @@ if ($mode === 'sender') {
     // Sender HTML
     ?>
     <!DOCTYPE html>
-    <html><head><title>Large File Transfer - Sender</title></head><body>
-    <h2>Send a File</h2>
-    <form id="sendForm">
-        <label>Pick file to send: <input type="file" id="fileInput" required /></label><br><br>
-        <button type="button" onclick="startSend()">Start Sending</button>
+    <html>
+    <head>
+        <title>Large File Transfer - Sender</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    </head>
+    <body class="bg-light">
+    <div class="container py-5">
+    <div class="card shadow-sm mx-auto" style="max-width:500px;">
+    <div class="card-body">
+    <h2 class="card-title mb-4">Send a File</h2>
+    <form id="sendForm" class="mb-3">
+        <label class="form-label">Pick file to send:
+            <input type="file" id="fileInput" class="form-control" required />
+        </label><br>
+        <button type="button" class="btn btn-primary" onclick="startSend()">Start Sending</button>
     </form>
-    <div id="sendStatus"></div>
-    <progress id="progressBar" value="0" max="100" style="width:300px; display:none;"></progress>
+    <div id="sendStatus" class="mb-3"></div>
+    <div class="mb-3">
+        <progress id="progressBar" value="0" max="100" class="form-range w-100" style="height: 24px; display:none;"></progress>
+    </div>
+    <a href="?" class="btn btn-link">Back to main</a>
+    </div></div></div>
     <script>
     const CHUNK_SIZE = <?php echo json_encode($CHUNK_SIZE); ?>;
     let sessionId = null;
@@ -278,8 +321,11 @@ if ($mode === 'sender') {
         const receiverUrl = location.origin + location.pathname + '?mode=receiver';
         document.getElementById('sendStatus').innerHTML =
             'Session ID: <b>' + sessionId + '</b><br>' +
-            '<label>Receiver page link: <input type="text" id="receiverLink" value="' + receiverUrl + '" readonly size="40"></label>' +
-            '<button type="button" onclick="copyReceiverLink()">Copy to clipboard</button>' +
+            '<label class="form-label">Receiver page link:</label>' +
+            '<div class="input-group mb-2">' +
+            '  <input type="text" id="receiverLink" class="form-control" value="' + receiverUrl + '" readonly>' +
+            '  <button type="button" class="btn btn-outline-secondary ms-2" onclick="copyReceiverLink()">Copy to clipboard</button>' +
+            '</div>' +
             '<div id="sendProgress"></div>';
         const progressDiv = document.getElementById('sendProgress');
         window.copyReceiverLink = function() {
@@ -296,7 +342,7 @@ if ($mode === 'sender') {
             // Ask ready
             let readyData;
             while (true) {
-                let readyResp = await fetch('?mode=api&action=ready');
+                let readyResp = await fetch('?mode=api&action=ready&session_id=' + encodeURIComponent(sessionId));
                 readyData = await readyResp.json();
                 if (readyData.ok) break;
                 if (readyData.reason === 'tmp_full') {
@@ -335,7 +381,6 @@ if ($mode === 'sender') {
         progressDiv.innerText = 'File sent!';
     }
     </script>
-    <p><a href="?">Back to main</a></p>
     </body></html>
     <?php
     exit;
@@ -344,14 +389,28 @@ if ($mode === 'sender') {
     $prefill_session = isset($_GET['session_id']) ? htmlspecialchars($_GET['session_id']) : '';
     ?>
     <!DOCTYPE html>
-    <html><head><title>Large File Transfer - Receiver</title></head><body>
-    <h2>Receive a File</h2>
-    <form id="recvForm">
-        <label>Session ID: <input type="text" id="sessionId" value="<?php echo $prefill_session; ?>" required /></label><br><br>
-        <button type="button" onclick="startReceive()">Start Receiving</button>
+    <html>
+    <head>
+        <title>Large File Transfer - Receiver</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    </head>
+    <body class="bg-light">
+    <div class="container py-5">
+    <div class="card shadow-sm mx-auto" style="max-width:500px;">
+    <div class="card-body">
+    <h2 class="card-title mb-4">Receive a File</h2>
+    <form id="recvForm" class="mb-3">
+        <label class="form-label">Session ID:
+            <input type="text" id="sessionId" class="form-control" value="<?php echo $prefill_session; ?>" required />
+        </label><br>
+        <button type="button" class="btn btn-primary" onclick="startReceive()">Start Receiving</button>
     </form>
-    <div id="recvStatus"></div>
-    <progress id="progressBar" value="0" max="100" style="width:300px; display:none;"></progress>
+    <div id="recvStatus" class="mb-3"></div>
+    <div class="mb-3">
+        <progress id="progressBar" value="0" max="100" class="form-range w-100" style="height: 24px; display:none;"></progress>
+    </div>
+    <a href="?" class="btn btn-link">Back to main</a>
+    </div></div></div>
     <script>
     <?php if ($prefill_session) { echo 'window.onload = function() { startReceive(); };'; } ?>
     async function startReceive() {
@@ -409,7 +468,6 @@ if ($mode === 'sender') {
         document.getElementById('recvStatus').appendChild(a);
     }
     </script>
-    <p><a href="?">Back to main</a></p>
     </body></html>
     <?php
     exit;
@@ -418,8 +476,29 @@ if ($mode === 'sender') {
 // Main landing page
 ?>
 <!DOCTYPE html>
-<html><head><title>Large File Transfer</title></head><body>
-<h2>Large File Transfer</h2>
-<p><a href="?mode=sender">I want to send a file</a></p>
-<p><a href="?mode=receiver">I want to receive a file</a></p>
+<html>
+<head>
+    <title>Large File Transfer</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%); min-height: 100vh; }
+        .card { border-radius: 1rem; }
+        .brand { font-family: 'Segoe UI', sans-serif; font-weight: 700; letter-spacing: 1px; }
+    </style>
+</head>
+<body class="bg-light">
+<div class="container d-flex flex-column justify-content-center align-items-center" style="min-height:100vh;">
+    <div class="card shadow-lg p-4" style="max-width: 400px; width:100%;">
+        <div class="text-center mb-4">
+            <span class="brand display-5">Large File Transfer</span>
+        </div>
+        <div class="d-grid gap-3 mb-3">
+            <a href="?mode=sender" class="btn btn-success btn-lg">I want to send a file</a>
+            <a href="?mode=receiver" class="btn btn-info btn-lg">I want to receive a file</a>
+        </div>
+        <div class="text-center mt-4 text-muted" style="font-size:0.95em;">
+            &copy; Denys Fedoryshchenko
+        </div>
+    </div>
+</div>
 </body></html>
