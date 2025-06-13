@@ -10,11 +10,11 @@ Large File Transfer Web App Design (Detailed)
 2. Sender Flow:
    - The sender selects a file and clicks "Start Sending".
    - The frontend requests a new session ID from the backend via the 'create_session' API endpoint.
-   - The file is split into chunks in the browser using JavaScript (chunk size is set in the PHP config, default 5MB).
+   - The file is split into chunks in the browser using JavaScript (chunk size is set in the PHP config, default 2MB).
    - For each chunk:
-     a. The frontend asks the backend if it is ready to receive the next chunk via the 'ready' API endpoint.
-        - The backend checks if the 'tmp' directory is under the configured size limit (default 100MB) and if there is enough disk space.
-        - If not ready, the sender is notified and upload stops.
+     a. The frontend asks the backend if it is ready to receive the next chunk via the 'ready' API endpoint, passing the session_id.
+        - The backend checks if the **current session's directory** is under the configured size limit (default 50MB) and if there is enough disk space.
+        - If not ready, the sender is notified and upload stops or retries.
      b. If ready, the chunk is uploaded to the backend via the 'upload_chunk' API endpoint (multipart/form-data).
         - The backend saves each chunk as 'tmp/<session_id>/chunk_<index>'.
         - On the first chunk, a 'meta.json' file is created in the session directory with file name and total chunk count.
@@ -22,7 +22,7 @@ Large File Transfer Web App Design (Detailed)
 
    API endpoints for sender:
      - ?mode=api&action=create_session      (POST/GET) → {ok, session_id}
-     - ?mode=api&action=ready              (GET)      → {ok} or {ok: false, reason}
+     - ?mode=api&action=ready&session_id=... (GET)      → {ok} or {ok: false, reason}
      - ?mode=api&action=upload_chunk       (POST, multipart) with session_id, chunk_index, total_chunks, file_name, chunk
 
 3. Receiver Flow:
@@ -53,7 +53,7 @@ Large File Transfer Web App Design (Detailed)
    - Only valid session IDs and chunk indices are accepted by the backend.
    - Uploaded files are not executable and are stored in a non-public directory.
    - Chunks are deleted from the server after successful download and confirmation by the receiver.
-   - The 'tmp' directory is size-limited and checked for available disk space before accepting new chunks.
+   - The **per-session** directory is size-limited and checked for available disk space before accepting new chunks.
 */
 
 // Configuration
