@@ -260,6 +260,8 @@ if ($mode === 'sender') {
     let sessionId = null;
     async function startSend() {
         const fileInput = document.getElementById('fileInput');
+        const sendBtn = document.querySelector('#sendForm button');
+        sendBtn.disabled = true;
         if (!fileInput.files.length) return;
         const file = fileInput.files[0];
         document.getElementById('sendStatus').innerText = 'Creating session...';
@@ -268,15 +270,24 @@ if ($mode === 'sender') {
         let data = await resp.json();
         if (!data.ok) {
             document.getElementById('sendStatus').innerText = 'Error: ' + data.error;
+            sendBtn.disabled = false;
             return;
         }
         sessionId = data.session_id;
-        // Always show session info and receiver link
+        // Show session info and receiver page link in input with copy button
+        const receiverUrl = location.origin + location.pathname + '?mode=receiver';
         document.getElementById('sendStatus').innerHTML =
             'Session ID: <b>' + sessionId + '</b><br>' +
-            '<a href="?mode=receiver&session_id=' + encodeURIComponent(sessionId) + '">Receiver link (click or copy)</a>' +
+            '<label>Receiver page link: <input type="text" id="receiverLink" value="' + receiverUrl + '" readonly size="40"></label>' +
+            '<button type="button" onclick="copyReceiverLink()">Copy to clipboard</button>' +
             '<div id="sendProgress"></div>';
         const progressDiv = document.getElementById('sendProgress');
+        window.copyReceiverLink = function() {
+            const input = document.getElementById('receiverLink');
+            input.select();
+            input.setSelectionRange(0, 99999);
+            document.execCommand('copy');
+        };
         // Start chunking and uploading
         const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
         document.getElementById('progressBar').style.display = '';
@@ -293,6 +304,7 @@ if ($mode === 'sender') {
                     await new Promise(r => setTimeout(r, 1000));
                 } else {
                     progressDiv.innerText = 'Backend not ready: ' + (readyData.reason || 'unknown');
+                    sendBtn.disabled = false;
                     return;
                 }
             }
@@ -314,6 +326,7 @@ if ($mode === 'sender') {
             let uploadData = await uploadResp.json();
             if (!uploadData.ok) {
                 progressDiv.innerText = 'Upload failed: ' + (uploadData.error || 'unknown');
+                sendBtn.disabled = false;
                 return;
             }
             document.getElementById('progressBar').value = i + 1;
@@ -342,6 +355,8 @@ if ($mode === 'sender') {
     <script>
     <?php if ($prefill_session) { echo 'window.onload = function() { startReceive(); };'; } ?>
     async function startReceive() {
+        const recvBtn = document.querySelector('#recvForm button');
+        recvBtn.disabled = true;
         const sessionId = document.getElementById('sessionId').value.trim();
         if (!sessionId) return;
         document.getElementById('recvStatus').innerText = 'Fetching file info...';
@@ -349,6 +364,7 @@ if ($mode === 'sender') {
         let meta = await metaResp.json();
         if (!meta.ok) {
             document.getElementById('recvStatus').innerText = 'Error: ' + (meta.error || 'unknown');
+            recvBtn.disabled = false;
             return;
         }
         const totalChunks = meta.total_chunks;
@@ -371,6 +387,7 @@ if ($mode === 'sender') {
                     let confirmData = await confirmResp.json();
                     if (!confirmData.ok) {
                         document.getElementById('recvStatus').innerText = 'Failed to confirm chunk ' + i;
+                        recvBtn.disabled = false;
                         return;
                     }
                     document.getElementById('progressBar').value = i + 1;
